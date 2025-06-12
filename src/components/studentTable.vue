@@ -6,7 +6,7 @@
       ข้อมูลการเก็บขยะและแลกของรางวัล
     </h2>
 
-    <!-- Filters -->
+ 
     <div class="filters">
       <input v-model="filters.name" type="text" placeholder="ค้นหาชื่อ..." />
       <select v-model="filters.classLevel">
@@ -16,7 +16,7 @@
       <input type="date" v-model="filters.date" />
     </div>
 
-    <!-- Table -->
+ 
     <div class="table-wrapper">
       <table class="material-table">
         <thead>
@@ -40,7 +40,7 @@
             <td>{{ entry.pointsEarned }}</td>
             <td>{{ entry.rewardName || '-' }}</td>
             <td>{{ entry.pointsUsed || '-' }}</td>
-            <td>{{ formatDate(entry.date) }}</td>
+            <td>{{entry.date }}</td>
           </tr>
         </tbody>
       </table>
