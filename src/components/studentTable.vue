@@ -6,7 +6,7 @@
       ข้อมูลการเก็บขยะและแลกของรางวัล
     </h2>
 
- 
+
     <div class="filters">
       <input v-model="filters.name" type="text" placeholder="ค้นหาชื่อ..." />
       <select v-model="filters.classLevel">
@@ -16,7 +16,7 @@
       <input type="date" v-model="filters.date" />
     </div>
 
- 
+
     <div class="table-wrapper">
       <table class="material-table">
         <thead>
@@ -24,6 +24,7 @@
             <th>ชื่อ</th>
             <th>ชั้น</th>
             <th>ประเภทขยะ</th>
+            <th>หลักฐานการทิ้ง</th>
             <th>จำนวน</th>
             <th>แต้มที่ได้</th>
             <th>ของรางวัล</th>
@@ -36,11 +37,20 @@
             <td>{{ entry.fullName }}</td>
             <td>{{ entry.classLevel }}</td>
             <td>{{ entry.trashType }}</td>
+            <td>
+              <button @click="showImage(entry.imageBase64)">ดูรูป</button>
+            </td>
+            <div v-if="showImageModal" class="modal">
+              <div class="modal-content">
+                <span class="close" @click="closeImageModal">&times;</span>
+                <img :src="currentImage" alt="หลักฐานการทิ้ง" />
+              </div>
+            </div>
             <td>{{ entry.amount }}</td>
             <td>{{ entry.pointsEarned }}</td>
             <td>{{ entry.rewardName || '-' }}</td>
             <td>{{ entry.pointsUsed || '-' }}</td>
-            <td>{{entry.date }}</td>
+            <td>{{ entry.date }}</td>
           </tr>
         </tbody>
       </table>
@@ -125,9 +135,40 @@
   font-size: 1.6rem;
 }
 
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  position: relative;
+}
+
+.modal-content img {
+  max-width: 500px;
+  max-height: 500px;
+}
+
+.close {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  cursor: pointer;
+  font-size: 1.5rem;
+}
 </style>
 <script setup>
-import { ref, computed, onMounted  } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { db } from '../firebase/firebase'
 import { collection, getDocs } from 'firebase/firestore'
 import { format } from 'date-fns'
@@ -170,11 +211,12 @@ const fetchData = async () => {
       pointsEarned: (data.amount || 0) * (data.pointsPerItem || 0),
       rewardName: reward.rewardName,
       pointsUsed: reward.pointsUsed,
+      imageBase64: data.imageBase64 || '',
       date: data.date?.toDate?.() || new Date(),
       userId: data.userId
     }
   })
-studentData.value = records
+  studentData.value = records
   const uniqueClasses = [...new Set(records.map(r => r.classLevel))].filter(Boolean)
   classLevels.value = uniqueClasses
 }
@@ -192,5 +234,21 @@ const filteredData = computed(() => {
 })
 
 onMounted(fetchData)
-</script>
+const showImageModal = ref(false)
+const currentImage = ref('')
 
+const showImage = (base64) => {
+  if (base64) {
+    currentImage.value = base64
+    showImageModal.value = true
+  } else {
+    alert('ไม่มีรูปหลักฐาน')
+  }
+}
+
+const closeImageModal = () => {
+  showImageModal.value = false
+  currentImage.value = ''
+}
+
+</script>
