@@ -1,24 +1,24 @@
 <template>
-  <div class="container">
-    <img src="../assets/images/logo.jpeg" alt="" class="logo" />
-    <h2 class="title">
-      <span class="material-symbols-outlined icon">recycling</span>
-      ข้อมูลการเก็บขยะและแลกของรางวัล
-    </h2>
+  <div class="dashboard-container">
+    <header class="header">
+      <img src="../assets/images/logo.jpeg" alt="Logo" class="logo" />
+      <h2 class="title">
+        <span class="material-symbols-outlined icon">recycling</span>
+        ข้อมูลการเก็บขยะและแลกของรางวัล
+      </h2>
+    </header>
 
-
-    <div class="filters">
+    <section class="filters">
       <input v-model="filters.name" type="text" placeholder="ค้นหาชื่อ..." />
       <select v-model="filters.classLevel">
         <option value="">ทุกชั้น</option>
         <option v-for="cl in classLevels" :key="cl" :value="cl">{{ cl }}</option>
       </select>
       <input type="date" v-model="filters.date" />
-    </div>
+    </section>
 
-
-    <div class="table-wrapper">
-      <table class="material-table">
+    <TableSection title="ข้อมูลการทิ้งขยะ">
+      <table>
         <thead>
           <tr>
             <th>ชื่อ</th>
@@ -34,58 +34,232 @@
         </thead>
         <tbody>
           <tr v-for="entry in filteredData" :key="entry.userId + entry.date">
-            <td>{{ entry.fullName }}</td>
+           <td>{{ entry.fullName }}</td>
             <td>{{ entry.classLevel }}</td>
             <td>{{ entry.trashType }}</td>
             <td>
               <button @click="showImage(entry.imageBase64)">ดูรูป</button>
             </td>
-            <div v-if="showImageModal" class="modal">
-              <div class="modal-content">
-                <span class="close" @click="closeImageModal">&times;</span>
-                <img :src="currentImage" alt="หลักฐานการทิ้ง" />
-              </div>
-            </div>
             <td>{{ entry.amount }}</td>
             <td>{{ entry.pointsEarned }}</td>
-            <td>{{ entry.rewardName || '-' }}</td>
-            <td>{{ entry.pointsUsed || '-' }}</td>
-            <td>{{ entry.date }}</td>
+            <td>{{ entry.rewardName }}</td>
+            <td>{{ entry.pointsUsed }}</td>
+            <td>{{ formatDate(entry.date) }}</td>
           </tr>
         </tbody>
       </table>
+    </TableSection>
+
+    <TableSection title="รายชื่อนักเรียน">
+      <table>
+        <thead>
+          <tr>
+            <th>รหัสนักเรียน</th>
+            <th>ชื่อ-สกุล</th>
+            <th>ชั้น</th>
+            <th>อีเมล</th>
+            <th>เบอร์โทร</th>
+            <th>แต้มสะสม</th>
+            <th>วันสมัคร</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="user in usersList" :key="user.id">
+         <td>{{ user.studentId || '-' }}</td>
+            <td>{{ user.fullName || '-' }}</td>
+            <td>{{ user.classLevel || '-' }}</td>
+            <td>{{ user.email || '-' }}</td>
+            <td>{{ user.phone || '-' }}</td>
+            <td>{{ user.points || 0 }}</td>
+            <td>{{ formatDate(user.createdAt?.toDate?.() || user.createdAt) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </TableSection>
+
+<TableSection title="ของรางวัลที่แลก">
+  <table>
+    <thead>
+      <tr>
+        <th>นักเรียน</th>  
+        <th>ของรางวัล</th>
+        <th>แต้มที่ใช้</th>
+        <th>วันที่แลก</th>
+ 
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="redemption in redemptionsList" :key="redemption.id">
+        <td>{{ getUserFullName(redemption.studentId) }}  </td>  
+        <td>{{ redemption.rewardName }}</td>
+        <td>{{ redemption.pointsUsed }}</td>
+        <td>{{ formatDate(redemption.timestamp?.toDate?.() || redemption.timestamp) }}</td>
+      
+      </tr>
+    </tbody>
+  </table>
+</TableSection>
+
+
+    <TableSection title="ประวัติการเปลี่ยนแปลงโปรไฟล์">
+      <table>
+        <thead>
+          <tr>
+            <th>รหัสนักเรียน</th>
+            <th>ชื่อเก่า</th>
+            <th>ชื่อใหม่</th>
+            <th>วันที่เปลี่ยนแปลง</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="change in profileChangesList" :key="change.id">
+           <td>{{ getUserFullName(redemption.studentId) }} ({{ redemption.studentId }})</td> 
+            <td>{{ change.oldFullName }}</td>
+            <td>{{ change.newFullName }}</td>
+            <td>{{ formatDate(change.timestamp?.toDate?.() || change.timestamp) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </TableSection>
+
+    <div v-if="showImageModal" class="modal">
+      <div class="modal-content">
+        <span class="close" @click="closeImageModal">&times;</span>
+        <img :src="currentImage" alt="หลักฐานการทิ้ง" />
+      </div>
     </div>
   </div>
 </template>
 
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { db } from '../firebase/firebase'
+import { collection, getDocs, Timestamp } from 'firebase/firestore'
+import { format } from 'date-fns'
+import TableSection from '../components/TableSection.vue'
+
+const studentData = ref([])
+const filters = ref({ name: '', classLevel: '', date: '' })
+const classLevels = ref([])
+
+const usersList = ref([])
+const redemptionsList = ref([])
+const profileChangesList = ref([])
+
+const getUserFullName = (userId) => {
+  const user = usersList.value.find(u => u.id === userId)
+  return user ? user.fullName : '-'
+}
+
+
+
+const fetchData = async () => {
+  const [usersSnap, trashSnap, redemptionsSnap, profileChangesSnap] = await Promise.all([
+    getDocs(collection(db, 'users')),
+    getDocs(collection(db, 'trash_records')),
+    getDocs(collection(db, 'redemptions')),
+    getDocs(collection(db, 'profile_changes'))
+  ])
+
+  usersList.value = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  redemptionsList.value = redemptionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  profileChangesList.value = profileChangesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+
+  const userMap = Object.fromEntries(usersList.value.map(u => [u.id, u]))
+  const rewardMap = Object.fromEntries(redemptionsList.value.map(r => [r.studentId, r]))
+
+  studentData.value = trashSnap.docs.map(doc => {
+    const d = doc.data()
+    const user = userMap[d.userId] || {}
+    const reward = rewardMap[d.userId] || {}
+    const date = d.date instanceof Timestamp ? d.date.toDate() : new Date(d.date)
+
+    return {
+      userId: d.userId,
+      fullName: user.fullName || '-',
+      classLevel: user.classLevel || '-',
+      trashType: d.trashType || '-',
+      amount: d.amount || 0,
+      pointsEarned: (d.amount || 0) * (d.pointsPerItem || 0),
+      rewardName: reward.rewardName || '-',
+      pointsUsed: reward.pointsUsed || '-',
+      imageBase64: d.imageBase64 ? `data:image/jpeg;base64,${d.imageBase64}` : '',
+      date
+    }
+  })
+
+  classLevels.value = [...new Set(studentData.value.map(r => r.classLevel).filter(c => c && c !== '-'))]
+}
+
+onMounted(fetchData)
+
+const formatDate = (date) => {
+  if (!date) return '-'
+  try {
+    return format(date instanceof Date ? date : new Date(date), 'yyyy-MM-dd')
+  } catch {
+    return '-'
+  }
+}
+
+const filteredData = computed(() =>
+  studentData.value.filter(entry =>
+    entry.fullName.toLowerCase().includes(filters.value.name.toLowerCase()) &&
+    (!filters.value.classLevel || entry.classLevel === filters.value.classLevel) &&
+    (!filters.value.date || formatDate(entry.date) === filters.value.date)
+  )
+)
+
+const showImageModal = ref(false)
+const currentImage = ref('')
+const showImage = (image) => {
+  if (image) {
+    currentImage.value = image
+    showImageModal.value = true
+  } else {
+    alert('ไม่มีรูปหลักฐาน')
+  }
+}
+const closeImageModal = () => {
+  showImageModal.value = false
+  currentImage.value = ''
+}
+</script>
+
 <style scoped>
-.container {
+.dashboard-container {
   padding: 2rem;
-  font-family: 'Roboto', sans-serif;
   background: #f9fafb;
+  font-family: 'Roboto', sans-serif;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .logo {
-  width: 80px;
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
   border-radius: 50%;
-  margin-bottom: 1rem;
 }
 
 .title {
-  font-size: 1.6rem;
-  font-weight: 600;
+  font-size: 1.5rem;
   color: #3f51b5;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
 }
 
 .filters {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
   flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .filters input,
@@ -93,46 +267,30 @@
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid #ccc;
-  font-size: 1rem;
+  min-width: 180px;
 }
 
-.table-wrapper {
-  overflow-x: auto;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.material-table {
+table {
   width: 100%;
-  border-collapse: collapse;
   min-width: 800px;
+  border-collapse: collapse;
 }
 
-.material-table th {
+th {
   background-color: #3f51b5;
-  color: #fff;
+  color: white;
   padding: 12px;
-  font-weight: 600;
   text-align: center;
-  position: sticky;
-  top: 0;
 }
 
-.material-table td {
+td {
   padding: 10px 12px;
   text-align: center;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid #eee;
 }
 
-.material-table tbody tr:hover {
-  background-color: #f1f1f1;
-  transition: background-color 0.3s ease;
-}
-
-.icon {
-  font-family: 'Material Symbols Outlined';
-  font-size: 1.6rem;
+tr:hover {
+  background-color: #f5f5f5;
 }
 
 .modal {
@@ -145,110 +303,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 999;
 }
 
 .modal-content {
   background: white;
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: 12px;
   position: relative;
 }
 
 .modal-content img {
-  max-width: 500px;
-  max-height: 500px;
+  max-width: 90vw;
+  max-height: 80vh;
 }
 
 .close {
   position: absolute;
-  top: 5px;
-  right: 10px;
-  cursor: pointer;
+  top: 8px;
+  right: 16px;
   font-size: 1.5rem;
+  cursor: pointer;
 }
 </style>
-<script setup>
-import { ref, computed, onMounted } from 'vue'
-import { db } from '../firebase/firebase'
-import { collection, getDocs } from 'firebase/firestore'
-import { format } from 'date-fns'
-const studentData = ref([])
-const filters = ref({
-  name: '',
-  classLevel: '',
-  date: ''
-})
-const classLevels = ref([])
-const fetchData = async () => {
-  const usersSnap = await getDocs(collection(db, 'users'))
-  const trashSnap = await getDocs(collection(db, 'trash_records'))
-  const redemptionsSnap = await getDocs(collection(db, 'redemptions'))
-
-  const userMap = {}
-  usersSnap.forEach(doc => {
-    userMap[doc.id] = { ...doc.data(), userId: doc.id }
-  })
-
-  const rewardsMap = {}
-  redemptionsSnap.forEach(doc => {
-    const data = doc.data()
-    rewardsMap[data.studentId] = {
-      rewardName: data.rewardName,
-      pointsUsed: data.pointsUsed
-    }
-  })
-
-
-  const records = trashSnap.docs.map(doc => {
-    const data = doc.data()
-    const user = userMap[data.userId] || {}
-    const reward = rewardsMap[data.userId] || {}
-    return {
-      fullName: user.fullName,
-      classLevel: user.classLevel,
-      trashType: data.trashType,
-      amount: data.amount,
-      pointsEarned: (data.amount || 0) * (data.pointsPerItem || 0),
-      rewardName: reward.rewardName,
-      pointsUsed: reward.pointsUsed,
-      imageBase64: data.imageBase64 || '',
-      date: data.date?.toDate?.() || new Date(),
-      userId: data.userId
-    }
-  })
-  studentData.value = records
-  const uniqueClasses = [...new Set(records.map(r => r.classLevel))].filter(Boolean)
-  classLevels.value = uniqueClasses
-}
-const formatDate = (date) => format(date, 'yyyy-MM-dd')
-
-const filteredData = computed(() => {
-  return studentData.value.filter(entry => {
-    const nameMatch = entry.fullName?.toLowerCase().includes(filters.value.name.toLowerCase())
-    const classMatch = filters.value.classLevel ? entry.classLevel === filters.value.classLevel : true
-    const dateMatch = filters.value.date
-      ? formatDate(entry.date) === filters.value.date
-      : true
-    return nameMatch && classMatch && dateMatch
-  })
-})
-
-onMounted(fetchData)
-const showImageModal = ref(false)
-const currentImage = ref('')
-
-const showImage = (base64) => {
-  if (base64) {
-    currentImage.value = base64
-    showImageModal.value = true
-  } else {
-    alert('ไม่มีรูปหลักฐาน')
-  }
-}
-
-const closeImageModal = () => {
-  showImageModal.value = false
-  currentImage.value = ''
-}
-
-</script>
