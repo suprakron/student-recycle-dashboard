@@ -17,40 +17,7 @@
       <input type="date" v-model="filters.date" />
     </section>
 
-    <TableSection title="ข้อมูลการทิ้งขยะ">
-      <table>
-        <thead>
-          <tr>
-            <th>ชื่อ</th>
-            <th>ชั้น</th>
-            <th>ประเภทขยะ</th>
-            <th>หลักฐานการทิ้ง</th>
-            <th>จำนวน</th>
-            <th>แต้มที่ได้</th>
-            <th>ของรางวัล</th>
-            <th>แต้มที่ใช้</th>
-            <th>วันที่</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="entry in filteredData" :key="entry.userId + entry.date">
-           <td>{{ entry.fullName }}</td>
-            <td>{{ entry.classLevel }}</td>
-            <td>{{ entry.trashType }}</td>
-            <td>
-              <button @click="showImage(entry.imageBase64)">ดูรูป</button>
-            </td>
-            <td>{{ entry.amount }}</td>
-            <td>{{ entry.pointsEarned }}</td>
-            <td>{{ entry.rewardName }}</td>
-            <td>{{ entry.pointsUsed }}</td>
-            <td>{{ formatDate(entry.date) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </TableSection>
-
-    <TableSection title="รายชื่อนักเรียน">
+    <TableSection title="ข้อมูลรวมของนักเรียน">
       <table>
         <thead>
           <tr>
@@ -61,62 +28,45 @@
             <th>เบอร์โทร</th>
             <th>แต้มสะสม</th>
             <th>วันสมัคร</th>
+            <th>ประเภทขยะล่าสุด</th>
+            <th>จำนวน</th>
+            <th>แต้มที่ได้</th>
+            <th>ของรางวัลล่าสุด</th>
+            <th>แต้มที่ใช้</th>
+            <th>วันที่แลก</th>
+            <th>หลักฐานการทิ้ง</th>
+            <th>ชื่อเก่า</th>
+            <th>ชื่อใหม่</th>
+            <th>วันที่เปลี่ยนชื่อ</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in usersList" :key="user.id">
-         <td>{{ user.studentId || '-' }}</td>
+          <tr v-for="user in filteredUsers" :key="user.id">
+            <td>{{ user.studentId || '-' }}</td>
             <td>{{ user.fullName || '-' }}</td>
             <td>{{ user.classLevel || '-' }}</td>
             <td>{{ user.email || '-' }}</td>
             <td>{{ user.phone || '-' }}</td>
             <td>{{ user.points || 0 }}</td>
             <td>{{ formatDate(user.createdAt?.toDate?.() || user.createdAt) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </TableSection>
-
-<TableSection title="ของรางวัลที่แลก">
-  <table>
-    <thead>
-      <tr>
-        <th>นักเรียน</th>  
-        <th>ของรางวัล</th>
-        <th>แต้มที่ใช้</th>
-        <th>วันที่แลก</th>
- 
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="redemption in redemptionsList" :key="redemption.id">
-        <td>{{ getUserFullName(redemption.studentId) }}  </td>  
-        <td>{{ redemption.rewardName }}</td>
-        <td>{{ redemption.pointsUsed }}</td>
-        <td>{{ formatDate(redemption.timestamp?.toDate?.() || redemption.timestamp) }}</td>
-      
-      </tr>
-    </tbody>
-  </table>
-</TableSection>
-
-
-    <TableSection title="ประวัติการเปลี่ยนแปลงโปรไฟล์">
-      <table>
-        <thead>
-          <tr>
-            <th>รหัสนักเรียน</th>
-            <th>ชื่อเก่า</th>
-            <th>ชื่อใหม่</th>
-            <th>วันที่เปลี่ยนแปลง</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="change in profileChangesList" :key="change.id">
-           <td>{{ getUserFullName(redemption.studentId) }} ({{ redemption.studentId }})</td> 
-            <td>{{ change.oldFullName }}</td>
-            <td>{{ change.newFullName }}</td>
-            <td>{{ formatDate(change.timestamp?.toDate?.() || change.timestamp) }}</td>
+            <td>{{ getLastTrash(user.id)?.trashType || '-' }}</td>
+            <td>{{ getLastTrash(user.id)?.amount || '-' }}</td>
+            <td>{{ getLastTrash(user.id)?.pointsEarned || '-' }}</td>
+            <td>{{ getLastRedemption(user.id)?.rewardName || '-' }}</td>
+            <td>{{ getLastRedemption(user.id)?.pointsUsed || '-' }}</td>
+            <td>{{ formatDate(getLastRedemption(user.id)?.timestamp) }}</td>
+            <td>
+              <button
+                v-if="getLastTrash(user.id) && getLastTrash(user.id).imageBase64 && getLastTrash(user.id).imageBase64.trim() !== ''"
+                @click="showImage(getLastTrash(user.id).imageBase64)"
+              >
+                ดูรูป
+              </button>
+              <span v-else>-</span>
+            </td>
+            <td>{{ getLastProfileChange(user.id)?.oldFullName || '-' }}</td>
+            <td>{{ getLastProfileChange(user.id)?.newFullName || '-' }}</td>
+            <td>{{ formatDate(getLastProfileChange(user.id)?.timestamp) }}</td>
           </tr>
         </tbody>
       </table>
@@ -141,17 +91,30 @@ import TableSection from '../components/TableSection.vue'
 const studentData = ref([])
 const filters = ref({ name: '', classLevel: '', date: '' })
 const classLevels = ref([])
-
 const usersList = ref([])
 const redemptionsList = ref([])
 const profileChangesList = ref([])
 
-const getUserFullName = (userId) => {
-  const user = usersList.value.find(u => u.id === userId)
-  return user ? user.fullName : '-'
+const getLastTrash = (userId) => {
+  const list = studentData.value.filter(d => d.userId === userId)
+  if (list.length === 0) {
+    console.log('No trash record for user:', userId)
+    return null
+  }
+  const sorted = list.sort((a, b) => new Date(b.date) - new Date(a.date))
+  console.log('Trash for user:', userId, sorted[0])
+  return sorted[0] || null
 }
 
+const getLastRedemption = (userId) => {
+  const list = redemptionsList.value.filter(r => r.studentId === userId)
+  return list.sort((a, b) => new Date(b.timestamp?.toDate?.() || b.timestamp) - new Date(a.timestamp?.toDate?.() || a.timestamp))[0] || null
+}
 
+const getLastProfileChange = (userId) => {
+  const list = profileChangesList.value.filter(p => p.studentId === userId)
+  return list.sort((a, b) => new Date(b.timestamp?.toDate?.() || b.timestamp) - new Date(a.timestamp?.toDate?.() || a.timestamp))[0] || null
+}
 
 const fetchData = async () => {
   const [usersSnap, trashSnap, redemptionsSnap, profileChangesSnap] = await Promise.all([
@@ -188,7 +151,8 @@ const fetchData = async () => {
     }
   })
 
-  classLevels.value = [...new Set(studentData.value.map(r => r.classLevel).filter(c => c && c !== '-'))]
+  // กำหนด classLevels จาก usersList เพราะ filters หาใน user
+  classLevels.value = [...new Set(usersList.value.map(u => u.classLevel).filter(c => c && c !== '-'))]
 }
 
 onMounted(fetchData)
@@ -202,16 +166,18 @@ const formatDate = (date) => {
   }
 }
 
-const filteredData = computed(() =>
-  studentData.value.filter(entry =>
-    entry.fullName.toLowerCase().includes(filters.value.name.toLowerCase()) &&
-    (!filters.value.classLevel || entry.classLevel === filters.value.classLevel) &&
-    (!filters.value.date || formatDate(entry.date) === filters.value.date)
-  )
-)
+const filteredUsers = computed(() => {
+  return usersList.value.filter(user => {
+    const fullNameMatch = user.fullName?.toLowerCase().includes(filters.value.name.toLowerCase())
+    const classMatch = !filters.value.classLevel || user.classLevel === filters.value.classLevel
+    const dateMatch = !filters.value.date || formatDate(user.createdAt?.toDate?.() || user.createdAt) === filters.value.date
+    return fullNameMatch && classMatch && dateMatch
+  })
+})
 
 const showImageModal = ref(false)
 const currentImage = ref('')
+
 const showImage = (image) => {
   if (image) {
     currentImage.value = image
@@ -220,6 +186,7 @@ const showImage = (image) => {
     alert('ไม่มีรูปหลักฐาน')
   }
 }
+
 const closeImageModal = () => {
   showImageModal.value = false
   currentImage.value = ''
