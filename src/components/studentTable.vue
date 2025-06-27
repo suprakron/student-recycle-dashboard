@@ -18,58 +18,61 @@
     </section>
 
     <TableSection title="ข้อมูลรวมของนักเรียน">
-      <table>
-        <thead>
-          <tr>
-            <th>รหัสนักเรียน</th>
-            <th>ชื่อ-สกุล</th>
-            <th>ชั้น</th>
-            <th>อีเมล</th>
-            <th>เบอร์โทร</th>
-            <th>แต้มสะสม</th>
-            <th>วันสมัคร</th>
-            <th>ประเภทขยะล่าสุด</th>
-            <th>จำนวน</th>
-            <th>แต้มที่ได้</th>
-            <th>ของรางวัลล่าสุด</th>
-            <th>แต้มที่ใช้</th>
-            <th>วันที่แลก</th>
-            <th>หลักฐานการทิ้ง</th>
-            <th>ชื่อเก่า</th>
-            <th>ชื่อใหม่</th>
-            <th>วันที่เปลี่ยนชื่อ</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="user in filteredUsers" :key="user.id">
-            <td>{{ user.studentId || '-' }}</td>
-            <td>{{ user.fullName || '-' }}</td>
-            <td>{{ user.classLevel || '-' }}</td>
-            <td>{{ user.email || '-' }}</td>
-            <td>{{ user.phone || '-' }}</td>
-            <td>{{ user.points || 0 }}</td>
-            <td>{{ formatDate(user.createdAt?.toDate?.() || user.createdAt) }}</td>
-            <td>{{ getLastTrash(user.id)?.trashType || '-' }}</td>
-            <td>{{ getLastTrash(user.id)?.amount || '-' }}</td>
-            <td>{{ getLastTrash(user.id)?.pointsEarned || '-' }}</td>
-            <td>{{ getLastRedemption(user.id)?.rewardName || '-' }}</td>
-            <td>{{ getLastRedemption(user.id)?.pointsUsed || '-' }}</td>
-            <td>{{ formatDate(getLastRedemption(user.id)?.timestamp) }}</td>
-            <td>
-              <button
-                v-if="getLastTrash(user.id) && getLastTrash(user.id).imageBase64 && getLastTrash(user.id).imageBase64.trim() !== ''"
-                @click="showImage(getLastTrash(user.id).imageBase64)"
-              >
-                ดูรูป
-              </button>
-              <span v-else>-</span>
-            </td>
-            <td>{{ getLastProfileChange(user.id)?.oldFullName || '-' }}</td>
-            <td>{{ getLastProfileChange(user.id)?.newFullName || '-' }}</td>
-            <td>{{ formatDate(getLastProfileChange(user.id)?.timestamp) }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>รหัสนักเรียน</th>
+              <th>ชื่อ-สกุล</th>
+              <th>ชั้น</th>
+              <th>อีเมล</th>
+              <th>เบอร์โทร</th>
+              <th>แต้มสะสม</th>
+              <th>วันสมัคร</th>
+              <th>ประเภทขยะล่าสุด</th>
+              <th>จำนวน</th>
+              <th>แต้มที่ได้</th>
+              <th>ของรางวัลล่าสุด</th>
+              <th>แต้มที่ใช้</th>
+              <th>วันที่แลก</th>
+              <th>หลักฐานการทิ้ง</th>
+              <th>ชื่อเก่า</th>
+              <th>ชื่อใหม่</th>
+              <th>วันที่เปลี่ยนชื่อ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="user in filteredUsers" :key="user.id">
+              <td>{{ user.studentId || '-' }}</td>
+              <td>{{ user.fullName || '-' }}</td>
+              <td>{{ user.classLevel || '-' }}</td>
+              <td>{{ user.email || '-' }}</td>
+              <td>{{ user.phone || '-' }}</td>
+              <td>{{ user.points || 0 }}</td>
+              <td>{{ formatDate(user.createdAt?.toDate?.() || user.createdAt) }}</td>
+              <td>{{ user.lastTrash?.trashType || '-' }}</td>
+              <td>{{ user.lastTrash?.amount || '-' }}</td>
+              <td>{{ user.lastTrash?.pointsEarned || '-' }}</td>
+              <td>{{ user.lastRedemption?.rewardName || '-' }}</td>
+              <td>{{ user.lastRedemption?.pointsUsed || '-' }}</td>
+              <td>{{ formatDate(user.lastRedemption?.timestamp) }}</td>
+              <td>
+                <div v-if="user.lastTrash?.imageUrl">
+                  <img :src="user.lastTrash.imageUrl" alt="หลักฐาน" class="thumbnail"
+                    @click="showImage(user.lastTrash.imageUrl)" />
+                  <p style="font-size: 0.8rem; word-break: break-all;">{{ user.lastTrash.imageUrl }}</p>
+                </div>
+                <span v-else>-</span>
+              </td>
+
+              <td>{{ user.lastProfileChange?.oldFullName || '-' }}</td>
+              <td>{{ user.lastProfileChange?.newFullName || '-' }}</td>
+              <td>{{ formatDate(user.lastProfileChange?.timestamp) }}</td>
+
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </TableSection>
 
     <div v-if="showImageModal" class="modal">
@@ -81,6 +84,7 @@
   </div>
 </template>
 
+
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { db } from '../firebase/firebase'
@@ -88,103 +92,124 @@ import { collection, getDocs, Timestamp } from 'firebase/firestore'
 import { format } from 'date-fns'
 import TableSection from '../components/TableSection.vue'
 
-const studentData = ref([])
-const filters = ref({ name: '', classLevel: '', date: '' })
-const classLevels = ref([])
 const usersList = ref([])
+const trashRecords = ref([])
 const redemptionsList = ref([])
 const profileChangesList = ref([])
+const imagesMap = ref({})
+const filters = ref({ name: '', classLevel: '', date: '' })
+const classLevels = ref([])
+const showImageModal = ref(false)
+const currentImage = ref('')
 
-const getLastTrash = (userId) => {
-  const list = studentData.value.filter(d => d.userId === userId)
-  if (list.length === 0) {
-    console.log('No trash record for user:', userId)
-    return null
-  }
-  const sorted = list.sort((a, b) => new Date(b.date) - new Date(a.date))
-  console.log('Trash for user:', userId, sorted[0])
-  return sorted[0] || null
+// ฟังก์ชันช่วยจัดการวันที่ให้เป็น string
+const formatDate = (date) => {
+  if (!date) return '-'
+  const d = date instanceof Date ? date : date.toDate?.()
+  return format(d, 'yyyy-MM-dd')
 }
 
-const getLastRedemption = (userId) => {
-  const list = redemptionsList.value.filter(r => r.studentId === userId)
-  return list.sort((a, b) => new Date(b.timestamp?.toDate?.() || b.timestamp) - new Date(a.timestamp?.toDate?.() || a.timestamp))[0] || null
-}
-
-const getLastProfileChange = (userId) => {
-  const list = profileChangesList.value.filter(p => p.studentId === userId)
-  return list.sort((a, b) => new Date(b.timestamp?.toDate?.() || b.timestamp) - new Date(a.timestamp?.toDate?.() || a.timestamp))[0] || null
-}
-
+// ดึงข้อมูลจาก Firestore
 const fetchData = async () => {
-  const [usersSnap, trashSnap, redemptionsSnap, profileChangesSnap] = await Promise.all([
+  const [usersSnap, trashSnap, redemptionsSnap, profileSnap, imagesSnap] = await Promise.all([
     getDocs(collection(db, 'users')),
     getDocs(collection(db, 'trash_records')),
     getDocs(collection(db, 'redemptions')),
-    getDocs(collection(db, 'profile_changes'))
+    getDocs(collection(db, 'profile_changes')),
+    getDocs(collection(db, 'trash_images')),
   ])
 
   usersList.value = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-  redemptionsList.value = redemptionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-  profileChangesList.value = profileChangesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-
-  const userMap = Object.fromEntries(usersList.value.map(u => [u.id, u]))
-  const rewardMap = Object.fromEntries(redemptionsList.value.map(r => [r.studentId, r]))
-
-  studentData.value = trashSnap.docs.map(doc => {
-    const d = doc.data()
-    const user = userMap[d.userId] || {}
-    const reward = rewardMap[d.userId] || {}
-    const date = d.date instanceof Timestamp ? d.date.toDate() : new Date(d.date)
-
+  trashRecords.value = trashSnap.docs.map(doc => {
+    const data = doc.data()
     return {
-      userId: d.userId,
-      fullName: user.fullName || '-',
-      classLevel: user.classLevel || '-',
-      trashType: d.trashType || '-',
-      amount: d.amount || 0,
-      pointsEarned: (d.amount || 0) * (d.pointsPerItem || 0),
-      rewardName: reward.rewardName || '-',
-      pointsUsed: reward.pointsUsed || '-',
-      imageBase64: d.imageBase64 ? `data:image/jpeg;base64,${d.imageBase64}` : '',
-      date
+      id: doc.id,
+      ...data,
+      date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date)
     }
   })
 
-  // กำหนด classLevels จาก usersList เพราะ filters หาใน user
-  classLevels.value = [...new Set(usersList.value.map(u => u.classLevel).filter(c => c && c !== '-'))]
+  redemptionsList.value = redemptionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), timestamp: doc.data().timestamp?.toDate?.() }))
+  profileChangesList.value = profileSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), timestamp: doc.data().timestamp?.toDate?.() }))
+
+  imagesSnap.docs.forEach(doc => {
+    const d = doc.data()
+    imagesMap.value[d.trashRecordId] = d.imageUrl
+    console.log('Mapping trashRecordId to imageUrl:', d.trashRecordId, d.imageUrl)
+  })
+
+
+  classLevels.value = [...new Set(usersList.value.map(u => u.classLevel).filter(Boolean))]
 }
 
 onMounted(fetchData)
 
-const formatDate = (date) => {
-  if (!date) return '-'
-  try {
-    return format(date instanceof Date ? date : new Date(date), 'yyyy-MM-dd')
-  } catch {
-    return '-'
-  }
+// ฟังก์ชันช่วยดึงข้อมูลล่าสุด
+const getLatest = (list, dateField = 'date') => {
+  if (!list || !list.length) return null
+  return [...list].sort((a, b) => new Date(b[dateField]) - new Date(a[dateField]))[0]
 }
 
-const filteredUsers = computed(() => {
-  return usersList.value.filter(user => {
-    const fullNameMatch = user.fullName?.toLowerCase().includes(filters.value.name.toLowerCase())
-    const classMatch = !filters.value.classLevel || user.classLevel === filters.value.classLevel
-    const dateMatch = !filters.value.date || formatDate(user.createdAt?.toDate?.() || user.createdAt) === filters.value.date
-    return fullNameMatch && classMatch && dateMatch
+// รวมข้อมูลผู้ใช้แต่ละคน
+// const enrichedUsers = computed(() => {
+//   return usersList.value.map(u => {
+//     const userTrash = trashRecords.value.filter(t => t.userId === u.id)
+//     const lastTrash = getLatest(userTrash)
+//     if (lastTrash) lastTrash.imageUrl = imagesMap.value[lastTrash.id] || ''
+//     const lastTrashWithImage = lastTrash
+//       ? {
+//         ...lastTrash,
+//         imageUrl: imagesMap.value[lastTrash.id] || '',
+//       }
+//       : null
+//     const lastRedemption = getLatest(redemptionsList.value.filter(r => r.studentId === u.id), 'timestamp')
+//     const lastProfileChange = getLatest(profileChangesList.value.filter(p => p.studentId === u.id), 'timestamp')
+
+
+//     return {
+//       ...u,
+//       lastTrash: lastTrashWithImage,
+//       lastTrash,
+//       lastRedemption,
+//       lastProfileChange,
+//     }
+//   })
+// })
+const enrichedUsers = computed(() => {
+  return usersList.value.map(u => {
+    const userTrash = trashRecords.value.filter(t => t.userId === u.id)
+    const lastTrash = getLatest(userTrash)
+    if (lastTrash) {
+      lastTrash.imageUrl = imagesMap.value[lastTrash.id] || ''
+    }
+    const lastRedemption = getLatest(redemptionsList.value.filter(r => r.studentId === u.id), 'timestamp')
+    const lastProfileChange = getLatest(profileChangesList.value.filter(p => p.studentId === u.id), 'timestamp')
+
+    return {
+      ...u,
+      lastTrash,
+      lastRedemption,
+      lastProfileChange,
+    }
   })
 })
 
-const showImageModal = ref(false)
-const currentImage = ref('')
+const filteredUsers = computed(() => {
+  return enrichedUsers.value
+    .filter(u => u && u.fullName)
+    .filter(({ fullName, classLevel, createdAt }) => {
+      const nameMatch = (fullName || '').toLowerCase().includes(filters.value.name.toLowerCase())
+      const classMatch = !filters.value.classLevel || classLevel === filters.value.classLevel
+      const dateMatch = !filters.value.date || formatDate(createdAt) === filters.value.date
+      return nameMatch && classMatch && dateMatch
+    })
+})
 
-const showImage = (image) => {
-  if (image) {
-    currentImage.value = image
-    showImageModal.value = true
-  } else {
-    alert('ไม่มีรูปหลักฐาน')
-  }
+
+
+const showImage = (url) => {
+  currentImage.value = url
+  showImageModal.value = true
 }
 
 const closeImageModal = () => {
@@ -193,11 +218,13 @@ const closeImageModal = () => {
 }
 </script>
 
+
 <style scoped>
 .dashboard-container {
   padding: 2rem;
   background: #f9fafb;
   font-family: 'Roboto', sans-serif;
+  overflow-x: auto;
 }
 
 .header {
@@ -237,9 +264,16 @@ const closeImageModal = () => {
   min-width: 180px;
 }
 
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
 table {
   width: 100%;
-  min-width: 800px;
+  min-width: 1000px;
   border-collapse: collapse;
 }
 
@@ -248,6 +282,9 @@ th {
   color: white;
   padding: 12px;
   text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 td {
@@ -258,6 +295,19 @@ td {
 
 tr:hover {
   background-color: #f5f5f5;
+}
+
+.view-button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.view-button:hover {
+  background-color: #45a049;
 }
 
 .modal {
@@ -278,10 +328,12 @@ tr:hover {
   padding: 1rem;
   border-radius: 12px;
   position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
 }
 
 .modal-content img {
-  max-width: 90vw;
+  max-width: 100%;
   max-height: 80vh;
 }
 
