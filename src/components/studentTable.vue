@@ -27,7 +27,7 @@
               <th>ชั้น</th>
               <th>อีเมล</th>
               <th>เบอร์โทร</th>
-              <th>แต้มสะสม</th>
+             
               <th>วันสมัคร</th>
               <th>ประเภทขยะล่าสุด</th>
               <th>จำนวน</th>
@@ -48,7 +48,7 @@
               <td>{{ user.classLevel || '-' }}</td>
               <td>{{ user.email || '-' }}</td>
               <td>{{ user.phone || '-' }}</td>
-              <td class="points-cell">{{ user.points || 0 }}</td>
+            
               <td>{{ formatDate(user.createdAt?.toDate?.() || user.createdAt) }}</td>
               <td>{{ user.lastTrash?.trashType || '-' }}</td>
               <td>{{ user.lastTrash?.amount || '-' }}</td>
