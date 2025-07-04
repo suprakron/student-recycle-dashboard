@@ -27,7 +27,6 @@
               <th>ชั้น</th>
               <th>อีเมล</th>
               <th>เบอร์โทร</th>
-             
               <th>วันสมัคร</th>
               <th>ประเภทขยะล่าสุด</th>
               <th>จำนวน</th>
@@ -112,12 +111,13 @@
 
 
 
-<script setup>
+<script setup  lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { db } from '../firebase/firebase'
 import { collection, getDocs, Timestamp } from 'firebase/firestore'
 import { format } from 'date-fns'
 import TableSection from '../components/TableSection.vue'
+import type { StudentData } from '@/types'
 
 const usersList = ref([])
 const trashRecords = ref([])
